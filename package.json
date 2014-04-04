@@ -1,0 +1,16 @@
+{
+    "name" : "mosaic-distil",
+    "version" : "0.1.0",
+    "dependencies" : {
+        "underscore" : "*",
+        "q" : "*",
+        "superagent" : "*",
+        "cheerio" : "*",
+        "terraformer-wkt-parser" : "*",
+        "pg" : "*"
+    },
+    "engines" : {
+        "node" : "latest",
+        "npm" : "latest"
+    }
+}
