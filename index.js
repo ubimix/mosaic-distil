@@ -101,22 +101,29 @@ var WriteListener = Listener.extend({
         this.index = {};
     },
     onBeginDataset : function(dataset) {
-        var info = {
+        var info = this.index[dataset.path] = {
             counter : 0
         };
         info.fileName = Path.join(this.options.dataFolder, dataset.path);
         info.destFile = this._setExtension(info.fileName, '.json');
-        info.output = FS.createWriteStream(info.destFile, {
-            flags : 'w',
-            encoding : 'UTF-8'
-        });
-        this.index[dataset.path] = info;
-        return Q.ninvoke(info.output, 'write', '[\n', 'UTF-8');
+        var dir = Path.dirname(info.destFile);
+        var promise = Q();
+        if (!FS.existsSync(dir)) {
+            promise = Q.ninvoke(FS, 'mkdir', dir);
+        }
+        return promise.then(function() {
+            info.output = FS.createWriteStream(info.destFile, {
+                flags : 'w',
+                encoding : 'UTF-8'
+            });
+            return Q.ninvoke(info.output, 'write', '[\n', 'UTF-8');
+        })
     },
     onEndDataset : function(dataset) {
         var info = this.index[dataset.path];
         delete this.index[dataset.path];
-        return Q.ninvoke(info.output, 'end', ']', 'UTF-8');
+        return info && info.output ? Q
+                .ninvoke(info.output, 'end', ']', 'UTF-8') : Q();
     },
     onDatasetEntity : function(dataset, entity) {
         var that = this;
