@@ -67,7 +67,27 @@ var DataProvider = Class.extend({
     /** Loads dataset entities and notifies them to the specified callback */
     loadDatasetEntities : function(dataset, callback) {
         return Q();
+    },
+
+    /* ---------------------------------- */
+    /* Utility methods used in subclasses. */
+
+    _getDataFolder : function() {
+        return this.options.dataFolder;
+    },
+    _downloadDataSet : function(dataset, fileName) {
+        var url = dataset.url;
+        if (!url || url == '') {
+            return Q(false);
+        }
+        if (FS.existsSync(fileName) && !this.options.forceDownload) {
+            return Q(true);
+        }
+        return Utils.download(fileName, url).then(function(doc) {
+            return true;
+        })
     }
+
 });
 
 var Listener = DataProvider.Listener = Class.extend({
@@ -84,7 +104,7 @@ var Listener = DataProvider.Listener = Class.extend({
         return Q();
     },
     onDatasetEntity : function(dataset, entity) {
-        return Q();
+        return this._transformToGeoJson(dataset, entity);
     },
 
     _transformToGeoJson : function(dataset, obj) {
@@ -105,7 +125,7 @@ var WriteListener = Listener.extend({
             counter : 0
         };
         info.fileName = Path.join(this.options.dataFolder, dataset.path);
-        info.destFile = this._setExtension(info.fileName, '.json');
+        info.destFile = this._getDestFile(info);
         var dir = Path.dirname(info.destFile);
         var promise = Q();
         if (!FS.existsSync(dir)) {
@@ -144,6 +164,9 @@ var WriteListener = Listener.extend({
                 .extname(fileName))
                 + newExt);
     },
+    _getDestFile : function(info) {
+        return this._setExtension(info.fileName, '.json');
+    }
 
 });
 
@@ -261,21 +284,29 @@ var CsvDataProvider = DataProvider.extend({
             return Utils.readCsv(fileName, callback, csvOptions);
         })
     },
-    _getDataFolder : function() {
-        return this.options.dataFolder;
+})
+
+var JsonDataProvider = DataProvider.extend({
+    loadDatasets : function() {
+        var dataSets = this.options.dataSets || [];
+        return Q(dataSets);
     },
-    _downloadDataSet : function(dataset, fileName) {
-        var url = dataset.url;
-        if (!url || url == '') {
-            return Q(false);
-        }
-        if (FS.existsSync(fileName) && !this.options.forceDownload) {
-            return Q(true);
-        }
-        return Utils.download(fileName, url).then(function(doc) {
-            return true;
-        })
-    }
+    loadDatasetEntities : function(dataset, callback) {
+        var dataFolder = this._getDataFolder();
+        var fileName = Path.join(dataFolder, dataset.path);
+        return this._downloadDataSet(dataset, fileName).then(
+                function() {
+                    return Q.ninvoke(FS, 'readFile', fileName, 'UTF-8').then(
+                            function(str) {
+                                var result = JSON.parse(str);
+                                if (_.isArray(result)) {
+                                    _.each(result, callback);
+                                } else {
+                                    callback(result);
+                                }
+                            })
+                })
+    },
 })
 
 module.exports = {
@@ -284,5 +315,6 @@ module.exports = {
     WriteListener : WriteListener,
     DbWriteListener : DbWriteListener,
     LogListener : LogListener,
-    CsvDataProvider : CsvDataProvider
+    CsvDataProvider : CsvDataProvider,
+    JsonDataProvider : JsonDataProvider
 }
