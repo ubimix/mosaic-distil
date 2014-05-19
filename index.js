@@ -1,5 +1,5 @@
 var _ = require('underscore');
-var Q = require('q');
+var P = require('q');
 var Utils = require('./fetch-utils');
 var Path = require('path');
 var FS = require('fs');
@@ -36,7 +36,7 @@ var DataProvider = Class.extend({
         }).then(function() {
             return that._handleDatasets(_.map(dataSets, function(dataset) {
                 return listener.onBeginDataset(dataset).then(function() {
-                    var promise = Q();
+                    var promise = P();
                     return that.loadDatasetEntities(dataset, function(entity) {
                         promise = promise.then(function() {
                             return listener.onDatasetEntity(dataset, entity);
@@ -44,17 +44,25 @@ var DataProvider = Class.extend({
                     }).then(function() {
                         return promise;
                     });
-                }).fin(function() {
-                    return listener.onEndDataset(dataset);
+                }).then(function(result) {
+                    listener.onEndDataset(dataset);
+                    return result;
+                }, function(err) {
+                    listener.onEndDataset(dataset);
+                    return listener.onError(err);
                 })
             }));
-        }).fin(function(result) {
-            return listener.onEnd(dataSets);
+        }).then(function(result) {
+            listener.onEnd(dataSets);
+            return result;
+        }, function(err) {
+            listener.onEnd(dataSets);
+            return listener.onError(err);
         });
     },
 
     _handleDatasets : function(list) {
-        return Q.all(list);
+        return P.all(list);
     },
 
     /* ---------------------------------- */
@@ -62,11 +70,11 @@ var DataProvider = Class.extend({
 
     /** Returns a promise for a list of datasets */
     loadDatasets : function() {
-        return Q([]);
+        return P([]);
     },
     /** Loads dataset entities and notifies them to the specified callback */
     loadDatasetEntities : function(dataset, callback) {
-        return Q();
+        return P();
     },
 
     /* ---------------------------------- */
@@ -78,10 +86,10 @@ var DataProvider = Class.extend({
     _downloadDataSet : function(dataset, fileName) {
         var url = dataset.url;
         if (!url || url == '') {
-            return Q(false);
+            return P(false);
         }
         if (FS.existsSync(fileName) && !this.options.forceDownload) {
-            return Q(true);
+            return P(true);
         }
         return Utils.download(fileName, url).then(function(doc) {
             return true;
@@ -91,17 +99,20 @@ var DataProvider = Class.extend({
 });
 
 var Listener = DataProvider.Listener = Class.extend({
+    onError : function(err) {
+        throw err;
+    },
     onBegin : function(datasets) {
-        return Q();
+        return P();
     },
     onEnd : function(datasets) {
-        return Q();
+        return P();
     },
     onBeginDataset : function(dataset) {
-        return Q();
+        return P();
     },
     onEndDataset : function(dataset) {
-        return Q();
+        return P();
     },
     onDatasetEntity : function(dataset, entity) {
         return this._transformToGeoJson(dataset, entity);
@@ -111,7 +122,7 @@ var Listener = DataProvider.Listener = Class.extend({
         if (_.isFunction(dataset.transform)) {
             return dataset.transform(obj);
         }
-        return Q(obj);
+        return P(obj);
     }
 })
 
@@ -127,27 +138,27 @@ var WriteListener = Listener.extend({
         info.fileName = Path.join(this.options.dataFolder, dataset.path);
         info.destFile = this._getDestFile(info);
         var dir = Path.dirname(info.destFile);
-        var promise = Q();
+        var promise = P();
         if (!FS.existsSync(dir)) {
-            promise = Q.ninvoke(FS, 'mkdir', dir);
+            promise = P.ninvoke(FS, 'mkdir', dir);
         }
         return promise.then(function() {
             info.output = FS.createWriteStream(info.destFile, {
                 flags : 'w',
                 encoding : 'UTF-8'
             });
-            return Q.ninvoke(info.output, 'write', '[\n', 'UTF-8');
+            return P.ninvoke(info.output, 'write', '[\n', 'UTF-8');
         })
     },
     onEndDataset : function(dataset) {
         var info = this.index[dataset.path];
         delete this.index[dataset.path];
         return info && info.output ? Q
-                .ninvoke(info.output, 'end', ']', 'UTF-8') : Q();
+                .ninvoke(info.output, 'end', ']', 'UTF-8') : P();
     },
     onDatasetEntity : function(dataset, entity) {
         var that = this;
-        return Q().then(function() {
+        return P().then(function() {
             return that._transformToGeoJson(dataset, entity);
         }).then(function(obj) {
             var str = JSON.stringify(obj, null, 2);
@@ -156,7 +167,7 @@ var WriteListener = Listener.extend({
                 str = ',\n' + str;
             }
             info.counter++;
-            return Q.ninvoke(info.output, 'write', str, 'UTF-8');
+            return P.ninvoke(info.output, 'write', str, 'UTF-8');
         });
     },
     _setExtension : function(fileName, newExt) {
@@ -180,13 +191,14 @@ var DbWriteListener = Listener.extend({
         return PostGisUtils.newConnection(that.options).then(
                 function(client) {
                     that.client = client;
-                    var promise;
+                    var promise = P();
                     if (that.options.rebuildDb) {
                         var initSql = PostGisUtils
                                 .generateTableCreationSQL(that.options);
-                        promise = PostGisUtils.runQuery(that.client, initSql);
-                    } else {
-                        promise = Q();
+                        promise = promise.then(function(query) {
+                            return PostGisUtils.runQuery(that.client, initSql);
+                        });
+                        return promise;
                     }
                     return promise.then(function() {
                         return client;
@@ -195,9 +207,9 @@ var DbWriteListener = Listener.extend({
     },
     onEnd : function() {
         var that = this;
-        return Q().then(
+        return P().then(
                 function(result) {
-                    var promise = Q();
+                    var promise = P();
                     if (that.options.rebuildDb) {
                         var indexesSql = PostGisUtils
                                 .generateTableIndexesSQL(that.options);
@@ -210,7 +222,12 @@ var DbWriteListener = Listener.extend({
                         return result;
                     })
                 }) // 
-        .fin(function() {
+        .then(function() {
+            if (that.client) {
+                that.client.end();
+                delete that.client;
+            }
+        }, function() {
             if (that.client) {
                 that.client.end();
                 delete that.client;
@@ -221,7 +238,7 @@ var DbWriteListener = Listener.extend({
         this._counter = this._counter || 0;
         this._counter++;
         var that = this;
-        return Q().then(function() {
+        return P().then(function() {
             return that._transformToGeoJson(dataset, entity);
         }).then(function(obj) {
             var sql = PostGisUtils.toPostGisSql(obj, that.options);
@@ -240,8 +257,10 @@ var LogListener = Listener.extend({
         return this.listener.onBegin(datasets);
     },
     onEnd : function(datasets) {
-        return this.listener.onEnd(datasets).fin(function() {
+        return this.listener.onEnd(datasets).then(function() {
             console.log('End');
+        }, function(err) {
+            console.log('End', err);
         });
     },
     onBeginDataset : function(dataset) {
@@ -274,7 +293,7 @@ var LogListener = Listener.extend({
 var CsvDataProvider = DataProvider.extend({
     loadDatasets : function() {
         var dataSets = this.options.dataSets || [];
-        return Q(dataSets);
+        return P(dataSets);
     },
     loadDatasetEntities : function(dataset, callback) {
         var dataFolder = this._getDataFolder();
@@ -289,14 +308,14 @@ var CsvDataProvider = DataProvider.extend({
 var JsonDataProvider = DataProvider.extend({
     loadDatasets : function() {
         var dataSets = this.options.dataSets || [];
-        return Q(dataSets);
+        return P(dataSets);
     },
     loadDatasetEntities : function(dataset, callback) {
         var dataFolder = this._getDataFolder();
         var fileName = Path.join(dataFolder, dataset.path);
         return this._downloadDataSet(dataset, fileName).then(
                 function() {
-                    return Q.ninvoke(FS, 'readFile', fileName, 'UTF-8').then(
+                    return P.ninvoke(FS, 'readFile', fileName, 'UTF-8').then(
                             function(str) {
                                 var result = JSON.parse(str);
                                 if (_.isArray(result)) {
