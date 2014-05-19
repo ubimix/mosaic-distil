@@ -153,7 +153,7 @@ var WriteListener = Listener.extend({
     onEndDataset : function(dataset) {
         var info = this.index[dataset.path];
         delete this.index[dataset.path];
-        return info && info.output ? Q
+        return info && info.output ? P
                 .ninvoke(info.output, 'end', ']', 'UTF-8') : P();
     },
     onDatasetEntity : function(dataset, entity) {
