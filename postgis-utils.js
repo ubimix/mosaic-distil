@@ -2,7 +2,7 @@ var PG = require('pg');
 // or native libpq bindings
 // var PG = require('PG').native
 
-var Q = require('q');
+var P = require('q');
 var _ = require('underscore');
 var FS = require('fs');
 // var Terraformer = require('terraformer');
@@ -31,11 +31,11 @@ function checkParams(params) {
 }
 
 function writeText(file, str) {
-    return Q.nfcall(FS.writeFile, file, str);
+    return P.ninvoke(FS, 'writeFile', file, str);
 }
 
 function readText(file) {
-    return Q.nfcall(FS.readFile, file, 'utf8');
+    return P.ninvoke(FS, 'readFile', file, 'utf8');
 }
 
 function writeJson(file, obj) {
@@ -49,7 +49,6 @@ function readJson(file) {
     });
 }
 
-var DB_URL_MASK = "postgres://postgres:1234@localhost/<%=dbname%>";
 return module.exports = {
 
     /**
@@ -58,21 +57,27 @@ return module.exports = {
      * @param params.dbname
      */
     newConnection : function(params) {
-        var url = params.url || DB_URL_MASK;
-        url = _.template(url, params);
+        var url = params.url;
         var client = new PG.Client(url);
-        return Q.ninvoke(client, 'connect');
+        return P.ninvoke(client, 'connect');
+    },
+
+    closeConnection : function(conn) {
+        if (_.isFunction(conn.end)) {
+            conn.end();
+        }
+        return P();
     },
 
     runQuery : function(client) {
         var queries = _.toArray(arguments);
         queries.splice(0, 1);
-        var promise = Q();
+        var promise = P();
         var results = [];
         _.each(queries, function(sql) {
             promise = promise.then(function(r) {
                 results.push(r);
-                return Q.ninvoke(client, 'query', sql);
+                return P.ninvoke(client, 'query', sql);
             })
         })
         return promise;
