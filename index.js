@@ -318,11 +318,11 @@ var JsonDataProvider = DataProvider.extend({
                     return P.ninvoke(FS, 'readFile', fileName, 'UTF-8').then(
                             function(str) {
                                 var result = JSON.parse(str);
-                                if (_.isArray(result)) {
-                                    _.each(result, callback);
-                                } else {
-                                    callback(result);
-                                }
+                                var list = _.isArray(result) //
+                                ? result //
+                                : _.isArray(result.features) //
+                                ? result.features : [ result ];
+                                _.each(list, callback);
                             })
                 })
     },

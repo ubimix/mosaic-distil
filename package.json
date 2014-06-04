@@ -7,7 +7,7 @@
         "superagent" : "*",
         "cheerio" : "*",
         "terraformer-wkt-parser" : "*",
-        "pg.js" : "*"
+        "pg" : "*"
     },
     "engines" : {
         "node" : "latest",

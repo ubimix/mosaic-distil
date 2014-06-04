@@ -13,7 +13,7 @@ function newDataSet(dataset) {
             {
                 delim : ";",
                 transform : function(obj) {
-                    return this._transform(obj);
+                    throw new Error('This method should be overloaded');
                 },
                 _toGeometry : function(str) {
                     var result = null;
@@ -49,10 +49,14 @@ function newDataSet(dataset) {
                     }
                 },
                 _transformValue : function(value, type) {
-                    var methodName = '_to' + type[0].toUpperCase()
-                            + type.substring(1);
-                    if (_.isFunction(this[methodName])) {
-                        value = this[methodName](value);
+                    if (_.isFunction(type)) {
+                        value = type(value);
+                    } else {
+                        var methodName = '_to' + type[0].toUpperCase()
+                                + type.substring(1);
+                        if (_.isFunction(this[methodName])) {
+                            value = this[methodName](value);
+                        }
                     }
                     return value;
                 },
