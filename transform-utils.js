@@ -50,7 +50,7 @@ function newDataSet(dataset) {
                 },
                 _transformValue : function(value, type) {
                     if (_.isFunction(type)) {
-                        value = type(value);
+                        value = type.call(this, value);
                     } else {
                         var methodName = '_to' + type[0].toUpperCase()
                                 + type.substring(1);
