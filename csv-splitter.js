@@ -33,6 +33,17 @@ CsvSplitter.prototype.splitCsvLine = function(str) {
     for (i = 0; i < str.length; i++) {
         var ch = str[i];
         if (esc) {
+            switch (ch) {
+                case 'n': 
+                    ch =  '\n';
+                    break;
+                case 'r': 
+                    ch =  '\r';
+                    break;
+                case 't': 
+                    ch =  '\t';
+                    break;
+            }
             buf += ch;
             esc = false;
         } else {
