@@ -9,6 +9,7 @@ var Url = require('url');
 var CsvSplitter = require('./csv-splitter');
 var Readline = require('readline');
 var Http = require('http');
+var AdmZip = require('adm-zip');
 
 /* -------------------------------- */
 module.exports = {
@@ -33,6 +34,8 @@ module.exports = {
     readText : readText,
     writeJson : writeJson,
     readJson : readJson,
+    
+    unzip : unzip,
 
     readCsvAsObjects : readCsvAsObjects,
     readCsv : readCsv,
@@ -248,6 +251,16 @@ function download(dataFileName, url, maxRedirects) {
             return diferred.promise;
         });
     });
+}
+
+function unzip(zipFile, dataDir) {
+    var zip = new AdmZip(zipFile);
+    var zipEntries = zip.getEntries(); // an array of
+    // ZipEntry records
+    return Q.all(_.map(zipEntries, function(zipEntry) {
+        var file = Path.join(dataDir, zipEntry.entryName);
+        zip.extractEntryTo(zipEntry.entryName, dataDir, true, true);
+    }));
 }
 
 function writeText(file, str) {
