@@ -194,8 +194,7 @@ var DbWriteListener = Listener.extend({
                     that.client = client;
                     var promise = P();
                     if (that.options.rebuildDb) {
-                        var initSql = PostGisUtils
-                                .generateTableCreationSQL(that.options);
+                        var initSql = that._getCreateStatement(); 
                         promise = promise.then(function(query) {
                             return PostGisUtils.runQuery(that.client, initSql);
                         });
@@ -210,18 +209,7 @@ var DbWriteListener = Listener.extend({
         var that = this;
         return P().then(
                 function(result) {
-                    var promise = P();
-                    if (that.options.rebuildDb) {
-                        var indexesSql = PostGisUtils
-                                .generateTableIndexesSQL(that.options);
-                        var viewsSql = PostGisUtils
-                                .generateTableViewsSQL(that.options);
-                        promise = PostGisUtils.runQuery(that.client,
-                                indexesSql, viewsSql);
-                    }
-                    return promise.then(function() {
-                        return result;
-                    })
+                    return that._rebuildIndexes();
                 }) // 
         .then(function() {
             if (that.client) {
@@ -246,6 +234,25 @@ var DbWriteListener = Listener.extend({
             return PostGisUtils.runQuery(that.client, sql);
         })
     },
+    _getCreateStatement : function() {
+        return PostGisUtils
+        .generateTableCreationSQL(this.options);
+    },
+    _rebuildIndexes : function() {
+        var promise = P();
+        var that = this;
+        if (that.options.rebuildDb) {
+            var indexesSql = PostGisUtils
+                    .generateTableIndexesSQL(that.options);
+            var viewsSql = PostGisUtils
+                    .generateTableViewsSQL(that.options);
+            promise = PostGisUtils.runQuery(that.client,
+                    indexesSql, viewsSql);
+        }
+        return promise.then(function() {
+            return result;
+        })
+    }
 })
 
 var LogListener = Listener.extend({
