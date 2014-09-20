@@ -100,7 +100,7 @@ return module.exports = {
             fieldValues.push(toPostGisWKT(geometry));
         }
         var sql = 'insert into <%=table%> (<%=names%>) values (<%=values%>);';
-        return _.template(sql, _.extend({}, params, {
+        return _.template(sql)(_.extend({}, params, {
             names : fieldNames.join(", "),
             values : fieldValues.join(', ')
         }));
@@ -115,14 +115,13 @@ return module.exports = {
                 + '(id serial primary key, type varchar(255), '
                 + 'properties json, geometry geometry, \n'
                 + 'check (st_srid(geometry) = 4326)\n);\n';
-        return _.template(sql, params);
+        return _.template(sql)(params);
     },
 
     generateTableIndexesSQL : function(params) {
         params = checkParams(params);
         return _.template("create index on <%=table%>(type);\n"
-                + "create index on <%=table%>((properties->>'type'));\n\n",
-                params);
+                + "create index on <%=table%>((properties->>'type'));\n\n")(params);
     },
 
     generateTableViewsSQL : function(params) {
@@ -132,7 +131,7 @@ return module.exports = {
                 + "<%=table%>.properties, \n" + "<%=table%>.geometry, \n"
                 + "st_transform(<%=table%>.geometry, 3857) \n"
                 + "as the_geom_webmercator \n" + "from <%=table%>;\n";
-        return _.template(sql, params);
+        return _.template(sql)(params);
     },
 
     writeText : writeText,
