@@ -1,6 +1,6 @@
 var $ = require('cheerio');
 var Request = require('superagent');
-var Q = require('q');
+var Mosaic = require('mosaic-commons');
 var _ = require('underscore');
 var FS = require('fs');
 var crypto = require('crypto');
@@ -60,7 +60,7 @@ function readCsvAsObjects(file, options) {
 }
 
 function readCsv(file, callback, options) {
-    var deferred = Q.defer();
+    var deferred = Mosaic.P.defer();
     try {
         var first = true;
         var headers = options.headers;
@@ -163,7 +163,7 @@ function getFileNameFromUrl(url, ext) {
 function checkDir(dir) {
     function f() {
     }
-    return Q.nfcall(FS.mkdir, dir).then(f, f);
+    return Mosaic.P.ninvoke(FS, FS.mkdir, dir).then(f, f);
 }
 
 function loadPage(options) {
@@ -187,7 +187,7 @@ function loadPage(options) {
 }
 
 function load(url) {
-    var deferred = Q.defer();
+    var deferred = Mosaic.P.defer();
     try {
         Request.get(url, deferred.makeNodeResolver());
     } catch (e) {
@@ -201,7 +201,7 @@ function download(dataFileName, url, maxRedirects) {
     var that = this;
     maxRedirects = maxRedirects || 10;
     function httpGet(options, redirectCount) {
-        var diferred = Q.defer();
+        var diferred = Mosaic.P.defer();
         try {
             if (redirectCount >= maxRedirects) {
                 throw new Error('Too many redirections. (' + redirectCount
@@ -234,16 +234,20 @@ function download(dataFileName, url, maxRedirects) {
     var dataDir = Path.dirname(dataFileName);
     function f() {
     }
-    return Q.nfcall(FS.mkdir, dataDir).then(f, f).then(function() {
+    return Mosaic.P.ninvoke(FS, FS.mkdir, dataDir).then(f, f).then(function() {
         var options = Url.parse(url);
         return httpGet(options, 0).then(function(res) {
-            var diferred = Q.defer();
+            var diferred = Mosaic.P.defer();
             try {
                 var file = FS.createWriteStream(dataFileName);
                 res.pipe(file);
                 file.on('finish', function() {
                     file.close();
                     diferred.resolve(true);
+                });
+                file.on('error', function(err) {
+                    file.close();
+                    diferred.reject(err);
                 });
             } catch (e) {
                 diferred.reject(e);
@@ -257,7 +261,7 @@ function unzip(zipFile, dataDir) {
     var zip = new AdmZip(zipFile);
     var zipEntries = zip.getEntries(); // an array of
     // ZipEntry records
-    return Q.all(_.map(zipEntries, function(zipEntry) {
+    return Mosaic.P.all(_.map(zipEntries, function(zipEntry) {
         var file = Path.join(dataDir, zipEntry.entryName);
         zip.extractEntryTo(zipEntry.entryName, dataDir, true, true);
     }));

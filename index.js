@@ -1,5 +1,5 @@
+var Mosaic = require('mosaic-commons');
 var _ = require('underscore');
-var P = require('q');
 var Utils = require('./fetch-utils');
 var Path = require('path');
 var FS = require('fs');
@@ -7,27 +7,10 @@ var Url = require('url');
 var PostGisUtils = require('./postgis-utils');
 var Shapefile = require('shapefile');
 
-function Class(options) {
-    this.initialize(options);
-}
-_.extend(Class.prototype, {
-    initialize : function(options) {
-        this.options = options || {};
-    }
-});
-_.extend(Class, {
-    extend : function(options) {
-        function F() {
-            F.Parent.apply(this, arguments);
-        }
-        F.Parent = this;
-        _.extend(F, this);
-        _.extend(F.prototype, this.prototype, options);
-        return F;
-    }
-})
-
-var DataProvider = Class.extend({
+var DataProvider = Mosaic.Class.extend({
+    initialize : function(options){
+        this.setOptions(options);
+    },
     handleAll : function(listener) {
         var that = this;
         var dataSets;
@@ -37,7 +20,7 @@ var DataProvider = Class.extend({
         }).then(function() {
             return that._handleDatasets(_.map(dataSets, function(dataset) {
                 return listener.onBeginDataset(dataset).then(function() {
-                    var promise = P();
+                    var promise = Mosaic.P();
                     return that.loadDatasetEntities(dataset, function(entity) {
                         promise = promise.then(function() {
                             return listener.onDatasetEntity(dataset, entity);
@@ -63,7 +46,7 @@ var DataProvider = Class.extend({
     },
 
     _handleDatasets : function(list) {
-        return P.all(list);
+        return Mosaic.P.all(list);
     },
 
     /* ---------------------------------- */
@@ -71,11 +54,11 @@ var DataProvider = Class.extend({
 
     /** Returns a promise for a list of datasets */
     loadDatasets : function() {
-        return P([]);
+        return Mosaic.P([]);
     },
     /** Loads dataset entities and notifies them to the specified callback */
     loadDatasetEntities : function(dataset, callback) {
-        return P();
+        return Mosaic.P();
     },
 
     /* ---------------------------------- */
@@ -87,10 +70,10 @@ var DataProvider = Class.extend({
     _downloadDataSet : function(dataset, fileName) {
         var url = dataset.url;
         if (!url || url == '') {
-            return P(false);
+            return Mosaic.P(false);
         }
         if (FS.existsSync(fileName) && !this.options.forceDownload) {
-            return P(true);
+            return Mosaic.P(true);
         }
         return Utils.download(fileName, url).then(function(doc) {
             return true;
@@ -99,21 +82,21 @@ var DataProvider = Class.extend({
 
 });
 
-var Listener = DataProvider.Listener = Class.extend({
+var Listener = DataProvider.Listener = Mosaic.Class.extend({
     onError : function(err) {
         throw err;
     },
     onBegin : function(datasets) {
-        return P();
+        return Mosaic.P();
     },
     onEnd : function(datasets) {
-        return P();
+        return Mosaic.P();
     },
     onBeginDataset : function(dataset) {
-        return P();
+        return Mosaic.P();
     },
     onEndDataset : function(dataset) {
-        return P();
+        return Mosaic.P();
     },
     onDatasetEntity : function(dataset, entity) {
         return this._transformToGeoJson(dataset, entity);
@@ -123,7 +106,7 @@ var Listener = DataProvider.Listener = Class.extend({
         if (_.isFunction(dataset.transform)) {
             return dataset.transform(obj);
         }
-        return P(obj);
+        return Mosaic.P(obj);
     }
 })
 
@@ -139,27 +122,27 @@ var WriteListener = Listener.extend({
         info.fileName = Path.join(this.options.dataFolder, dataset.path);
         info.destFile = this._getDestFile(info);
         var dir = Path.dirname(info.destFile);
-        var promise = P();
+        var promise = Mosaic.P();
         if (!FS.existsSync(dir)) {
-            promise = P.ninvoke(FS, 'mkdir', dir);
+            promise = Mosaic.P.ninvoke(FS, 'mkdir', dir);
         }
         return promise.then(function() {
             info.output = FS.createWriteStream(info.destFile, {
                 flags : 'w',
                 encoding : 'UTF-8'
             });
-            return P.ninvoke(info.output, 'write', '[\n', 'UTF-8');
+            return Mosaic.P.ninvoke(info.output, 'write', '[\n', 'UTF-8');
         })
     },
     onEndDataset : function(dataset) {
         var info = this.index[dataset.path];
         delete this.index[dataset.path];
-        return info && info.output ? P
-                .ninvoke(info.output, 'end', ']', 'UTF-8') : P();
+        return info && info.output ? Mosaic.P
+                .ninvoke(info.output, 'end', ']', 'UTF-8') : Mosaic.P();
     },
     onDatasetEntity : function(dataset, entity) {
         var that = this;
-        return P().then(function() {
+        return Mosaic.P.then(function() {
             return that._transformToGeoJson(dataset, entity);
         }).then(function(obj) {
             var str = JSON.stringify(obj, null, 2);
@@ -168,7 +151,7 @@ var WriteListener = Listener.extend({
                 str = ',\n' + str;
             }
             info.counter++;
-            return P.ninvoke(info.output, 'write', str, 'UTF-8');
+            return Mosaic.P.ninvoke(info.output, 'write', str, 'UTF-8');
         });
     },
     _setExtension : function(fileName, newExt) {
@@ -182,78 +165,78 @@ var WriteListener = Listener.extend({
 
 });
 
-var DbWriteListener = Listener.extend({
-    initialize : function(options) {
-        this.options = options || {};
-        this.index = {};
-    },
-    onBegin : function() {
-        var that = this;
-        return PostGisUtils.newConnection(that.options).then(
-                function(client) {
-                    that.client = client;
-                    var promise = P();
-                    if (that.options.rebuildDb) {
-                        var initSql = that._getCreateStatement(); 
-                        promise = promise.then(function(query) {
-                            return PostGisUtils.runQuery(that.client, initSql);
+var DbWriteListener = Listener
+        .extend({
+            initialize : function(options) {
+                this.options = options || {};
+                this.index = {};
+            },
+            onBegin : function() {
+                var that = this;
+                return PostGisUtils.newConnection(that.options).then(
+                        function(client) {
+                            that.client = client;
+                            var promise = Mosaic.P();
+                            if (that.options.rebuildDb) {
+                                var initSql = that._getCreateStatement();
+                                promise = promise.then(function(query) {
+                                    return PostGisUtils.runQuery(that.client,
+                                            initSql);
+                                });
+                                return promise;
+                            }
+                            return promise.then(function() {
+                                return client;
+                            });
                         });
-                        return promise;
-                    }
-                    return promise.then(function() {
-                        return client;
-                    });
-                });
-    },
-    onEnd : function() {
-        var that = this;
-        return P().then(
-                function(result) {
+            },
+            onEnd : function() {
+                var that = this;
+                return Mosaic.P().then(function(result) {
                     return that._rebuildIndexes();
                 }) // 
-        .then(function() {
-            if (that.client) {
-                that.client.end();
-                delete that.client;
+                .then(function() {
+                    if (that.client) {
+                        that.client.end();
+                        delete that.client;
+                    }
+                }, function() {
+                    if (that.client) {
+                        that.client.end();
+                        delete that.client;
+                    }
+                });
+            },
+            onDatasetEntity : function(dataset, entity) {
+                this._counter = this._counter || 0;
+                this._counter++;
+                var that = this;
+                return Mosaic.P.then(function() {
+                    return that._transformToGeoJson(dataset, entity);
+                }).then(function(obj) {
+                    var sql = PostGisUtils.toPostGisSql(obj, that.options);
+                    return PostGisUtils.runQuery(that.client, sql);
+                })
+            },
+            _getCreateStatement : function() {
+                return PostGisUtils.generateTableCreationSQL(this.options);
+            },
+            _rebuildIndexes : function() {
+                var promise = Mosaic.P();
+                var that = this;
+                if (that.options.rebuildDb) {
+                    var indexesSql = PostGisUtils
+                            .generateTableIndexesSQL(that.options);
+                    var viewsSql = PostGisUtils
+                            .generateTableViewsSQL(that.options);
+                    promise = PostGisUtils.runQuery(that.client, indexesSql,
+                            viewsSql);
+                }
+                return promise.then(function() {
+                    return result;
+                })
             }
-        }, function() {
-            if (that.client) {
-                that.client.end();
-                delete that.client;
-            }
-        });
-    },
-    onDatasetEntity : function(dataset, entity) {
-        this._counter = this._counter || 0;
-        this._counter++;
-        var that = this;
-        return P().then(function() {
-            return that._transformToGeoJson(dataset, entity);
-        }).then(function(obj) {
-            var sql = PostGisUtils.toPostGisSql(obj, that.options);
-            return PostGisUtils.runQuery(that.client, sql);
         })
-    },
-    _getCreateStatement : function() {
-        return PostGisUtils
-        .generateTableCreationSQL(this.options);
-    },
-    _rebuildIndexes : function() {
-        var promise = P();
-        var that = this;
-        if (that.options.rebuildDb) {
-            var indexesSql = PostGisUtils
-                    .generateTableIndexesSQL(that.options);
-            var viewsSql = PostGisUtils
-                    .generateTableViewsSQL(that.options);
-            promise = PostGisUtils.runQuery(that.client,
-                    indexesSql, viewsSql);
-        }
-        return promise.then(function() {
-            return result;
-        })
-    }
-})
 
 var LogListener = Listener.extend({
     initialize : function(options) {
@@ -301,7 +284,7 @@ var LogListener = Listener.extend({
 var CsvDataProvider = DataProvider.extend({
     loadDatasets : function() {
         var dataSets = this.options.dataSets || [];
-        return P(dataSets);
+        return Mosaic.P(dataSets);
     },
     loadDatasetEntities : function(dataset, callback) {
         var dataFolder = this._getDataFolder();
@@ -316,14 +299,14 @@ var CsvDataProvider = DataProvider.extend({
 var JsonDataProvider = DataProvider.extend({
     loadDatasets : function() {
         var dataSets = this.options.dataSets || [];
-        return P(dataSets);
+        return Mosaic.P(dataSets);
     },
     loadDatasetEntities : function(dataset, callback) {
         var dataFolder = this._getDataFolder();
         var fileName = Path.join(dataFolder, dataset.path);
         return this._downloadDataSet(dataset, fileName).then(
                 function() {
-                    return P.ninvoke(FS, 'readFile', fileName, 'UTF-8').then(
+                    return Mosaic.P.ninvoke(FS, 'readFile', fileName, 'UTF-8').then(
                             function(str) {
                                 var result = JSON.parse(str);
                                 var list = _.isArray(result) //
@@ -339,7 +322,7 @@ var JsonDataProvider = DataProvider.extend({
 var ShapeDataProvider = DataProvider.extend({
     loadDatasets : function() {
         var dataSets = this.options.dataSets || [];
-        return P(dataSets);
+        return Mosaic.P(dataSets);
     },
     loadDatasetEntities : function(dataset, callback) {
         var dataFolder = this._getDataFolder();
@@ -355,7 +338,7 @@ var ShapeDataProvider = DataProvider.extend({
             var dir = Path.join(Path.dirname(fileName), name);
             return Utils.checkDir(dir).then(function(exists) {
                 return Utils.unzip(fileName, dir).then(function() {
-                    return P.ninvoke(FS, 'readdir', dir).then(function(list) {
+                    return Mosaic.P.ninvoke(FS, 'readdir', dir).then(function(list) {
                         var file = _.find(list, function(name) {
                             return Path.extname(name) == '.shp';
                         })
@@ -367,10 +350,10 @@ var ShapeDataProvider = DataProvider.extend({
                     encoding : undefined,
                     'ignore-properties' : false
                 });
-                return P.ninvoke(reader, 'readHeader').then(function(header) {
+                return Mosaic.P.ninvoke(reader, 'readHeader').then(function(header) {
                 }) //
                 .then(function readRecord() {
-                    return P.ninvoke(reader, 'readRecord') // 
+                    return Mosaic.P.ninvoke(reader, 'readRecord') // 
                     .then(function(record) {
                         if (record === Shapefile.end) {
                             return;
@@ -379,15 +362,14 @@ var ShapeDataProvider = DataProvider.extend({
                         return readRecord();
                     })
                 }).then(function() {
-                    return P.ninvoke(reader, 'close');
+                    return Mosaic.P.ninvoke(reader, 'close');
                 })
             })
         })
     },
 })
 
-module.exports = {
-    Class : Class,
+module.exports = Mosaic.Distil = {
     DataProvider : DataProvider,
     WriteListener : WriteListener,
     DbWriteListener : DbWriteListener,

@@ -1,18 +1,19 @@
 {
-    "name" : "mosaic-distil",
-    "version" : "0.1.0",
-    "dependencies" : {
-        "underscore" : "*",
-        "q" : "*",
-        "superagent" : "*",
-        "cheerio" : "*",
-        "terraformer-wkt-parser" : "*",
-        "shapefile" : "*",
-        "adm-zip" : "*",
-        "pg" : "*"
-    },
-    "engines" : {
-        "node" : "latest",
-        "npm" : "latest"
-    }
+  "name": "mosaic-distil",
+  "version": "0.1.0",
+  "dependencies": {
+    "underscore": "*",
+    "q": "*",
+    "superagent": "*",
+    "cheerio": "*",
+    "terraformer-wkt-parser": "*",
+    "shapefile": "*",
+    "adm-zip": "*",
+    "pg": "*",
+    "mosaic-commons": "0.0.14"
+  },
+  "engines": {
+    "node": "latest",
+    "npm": "latest"
+  }
 }

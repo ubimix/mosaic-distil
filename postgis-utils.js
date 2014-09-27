@@ -1,8 +1,7 @@
 var PG = require('pg');
 // or native libpq bindings
 // var PG = require('PG').native
-
-var P = require('q');
+var Mosaic = require('mosaic-commons');
 var _ = require('underscore');
 var FS = require('fs');
 // var Terraformer = require('terraformer');
@@ -31,11 +30,11 @@ function checkParams(params) {
 }
 
 function writeText(file, str) {
-    return P.ninvoke(FS, 'writeFile', file, str);
+    return Mosaic.P.ninvoke(FS, 'writeFile', file, str);
 }
 
 function readText(file) {
-    return P.ninvoke(FS, 'readFile', file, 'utf8');
+    return Mosaic.P.ninvoke(FS, 'readFile', file, 'utf8');
 }
 
 function writeJson(file, obj) {
@@ -59,25 +58,25 @@ return module.exports = {
     newConnection : function(params) {
         var url = params.url;
         var client = new PG.Client(url);
-        return P.ninvoke(client, 'connect');
+        return Mosaic.P.ninvoke(client, 'connect');
     },
 
     closeConnection : function(conn) {
         if (_.isFunction(conn.end)) {
             conn.end();
         }
-        return P();
+        return Mosaic.P();
     },
 
     runQuery : function(client) {
         var queries = _.toArray(arguments);
         queries.splice(0, 1);
-        var promise = P();
+        var promise = Mosaic.P();
         var results = [];
         _.each(queries, function(sql) {
             promise = promise.then(function(r) {
                 results.push(r);
-                return P.ninvoke(client, 'query', sql);
+                return Mosaic.P.ninvoke(client, 'query', sql);
             })
         })
         return promise;

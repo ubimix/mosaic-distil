@@ -1,7 +1,7 @@
 var _ = require('underscore');
+var Mosaic = require('mosaic-commons');
 var MosaicDistil = require('../');
 var Utils = require('../transform-utils');
-var Q = require('q');
 var dataFolder = './tmp';
 
 var listener = new MosaicDistil.WriteListener({
@@ -18,7 +18,7 @@ var dataProvider = new MosaicDistil.ShapeDataProvider({
     dataFolder : dataFolder,
     forceDownload : false
 })
-return dataProvider.handleAll(listener).fail(function(err) {
+return dataProvider.handleAll(listener).then(null, function(err) {
     console.log(' * >>> ', err.stack);
 }).done();
 
