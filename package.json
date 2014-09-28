@@ -10,7 +10,8 @@
     "shapefile": "*",
     "adm-zip": "*",
     "pg": "*",
-    "mosaic-commons": "0.0.14"
+    "mosaic-commons": "0.0.14",
+    "elasticsearch": "^2.4.3"
   },
   "engines": {
     "node": "latest",
