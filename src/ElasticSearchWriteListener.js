@@ -8,12 +8,18 @@ var ElasticSearchWriteListener = DataProvider.Listener.extend({
     // ----------------------------------------------------------------------
 
     _getEntityType : function(dataset, entity) {
+        if (entity.properties && entity.properties.type)
+            return entity.properties.type;
         // FIXME:
         return 'mytype';
     },
     _getEntityId : function(dataset, entity) {
         var id = entity.id = entity.id || _.uniqueId('id-');
         return id;
+    },
+
+    _getMapping : function() {
+        return this.options.mapping || undefined;
     },
     // ----------------------------------------------------------------------
 
@@ -42,6 +48,12 @@ var ElasticSearchWriteListener = DataProvider.Listener.extend({
                     index : indexName
                 })
             }
+        }).then(function() {
+            // console.log('Mapping', that._getMapping());
+            var mapping = that._getMapping();
+            if (mapping)
+                return that._client.indices.putMapping(mapping);
+            return Mosaic.P();
         });
     },
     onBegin : function() {
@@ -86,11 +98,9 @@ var ElasticSearchWriteListener = DataProvider.Listener.extend({
             if (batch.length > 0) {
                 return that._client.bulk({
                     body : batch
-                }).then(
-                        function(err, resp) {
-                            console.log('bulk indexing... #', batch, ' error:',
-                                    err.errors);
-                        });
+                }).then(function(err, resp) {
+                    console.log('bulk indexing... #', batch.length, ' error:', err.errors);
+                });
             }
         });
     }
