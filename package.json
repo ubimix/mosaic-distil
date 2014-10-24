@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "dependencies": {
     "underscore": "*",
-    "q": "*",
     "superagent": "*",
     "cheerio": "*",
     "terraformer-wkt-parser": "*",
@@ -11,7 +10,9 @@
     "adm-zip": "*",
     "pg": "*",
     "mosaic-commons": "0.0.14",
-    "elasticsearch": "^2.4.3"
+    "elasticsearch": "^2.4.3",
+    "togeojson": "^0.8.0",
+    "jsdom": "^1.0.3"
   },
   "engines": {
     "node": "latest",

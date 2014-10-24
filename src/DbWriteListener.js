@@ -30,7 +30,7 @@ var DbWriteListener = DataProvider.Listener.extend({
         var that = this;
         return Mosaic.P().then(function(result) {
             return that._rebuildIndexes();
-        }) // 
+        }) //
         .then(function() {
             if (that.client) {
                 that.client.end();
@@ -50,6 +50,8 @@ var DbWriteListener = DataProvider.Listener.extend({
         return Mosaic.P.then(function() {
             return that._transformToGeoJson(dataset, entity);
         }).then(function(obj) {
+            if (!obj)
+                return ;
             var sql = PostGisUtils.toPostGisSql(obj, that.options);
             return PostGisUtils.runQuery(that.client, sql);
         })

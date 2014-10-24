@@ -18,6 +18,8 @@ var DataProvider = Mosaic.Class.extend({
                 return listener.onBeginDataset(dataset).then(function() {
                     var promise = Mosaic.P();
                     return that.loadDatasetEntities(dataset, function(entity) {
+                        if (!entity)
+                            return ;
                         promise = promise.then(function() {
                             return listener.onDatasetEntity(dataset, entity);
                         });
