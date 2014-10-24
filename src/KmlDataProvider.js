@@ -19,7 +19,7 @@ var KmlDataProvider = DataProvider.extend({
                     return Mosaic.P.ninvoke(FS, 'readFile', fileName, 'UTF-8')
                         .then(function(str) {
                             var doc = jsdom(str);
-                            var result = tj.kml(doc);
+                            var result = tj.kml(doc, { styles: true });
                             var list = _.isArray(result) //
                             ? result : _.isArray(result.features) //
                             ? result.features : [ result ];
