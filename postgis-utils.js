@@ -1,4 +1,4 @@
-var PG = require('pg');
+var PG = require('pg.js');
 // or native libpq bindings
 // var PG = require('PG').native
 var Mosaic = require('mosaic-commons');

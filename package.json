@@ -2,17 +2,16 @@
   "name": "mosaic-distil",
   "version": "0.1.1",
   "dependencies": {
-    "underscore": "*",
-    "superagent": "*",
-    "cheerio": "*",
-    "terraformer-wkt-parser": "*",
-    "shapefile": "*",
-    "adm-zip": "*",
-    "pg": "*",
-    "mosaic-commons": "0.0.14",
-    "elasticsearch": "^2.4.3",
+    "cheerio": "^0.18.0",
+    "elasticsearch": "^3.0.0",
+    "jsdom": "^1.2.1",
+    "mosaic-commons": "^0.0.15",
+    "pg.js": "^3.6.2",
+    "shapefile": "^0.3.0",
+    "superagent": "^0.20.0",
+    "terraformer-wkt-parser": "^1.0.0",
     "togeojson": "^0.8.0",
-    "jsdom": "^1.0.3"
+    "underscore": "^1.7.0"
   },
   "engines": {
     "node": "latest",
