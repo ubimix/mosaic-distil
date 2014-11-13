@@ -2,6 +2,7 @@
   "name": "mosaic-distil",
   "version": "0.1.1",
   "dependencies": {
+    "adm-zip": "^0.4.4",
     "cheerio": "^0.18.0",
     "elasticsearch": "^3.0.0",
     "jsdom": "^1.2.1",
