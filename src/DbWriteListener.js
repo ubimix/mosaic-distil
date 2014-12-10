@@ -7,17 +7,18 @@ var DbWriteListener = DataProvider.Listener.extend({
     initialize : function(options) {
         this.options = options || {};
         this.index = {};
+        this._utils = new PostGisUtils(this.options);
     },
     onBegin : function() {
         var that = this;
-        return PostGisUtils.newConnection(that.options)//
+        return this._utils.newConnection(that.options)//
         .then(function(client) {
             that.client = client;
             var promise = Mosaic.P();
             if (that.options.rebuildDb) {
                 var initSql = that._getCreateStatement();
                 promise = promise.then(function(query) {
-                    return PostGisUtils.runQuery(that.client, initSql);
+                    return that._utils.runQuery(that.client, initSql);
                 });
                 return promise;
             }
@@ -52,22 +53,22 @@ var DbWriteListener = DataProvider.Listener.extend({
         }).then(function(obj) {
             if (!obj)
                 return ;
-            var sql = PostGisUtils.toPostGisSql(obj, that.options);
-            return PostGisUtils.runQuery(that.client, sql);
+            var sql = that._utils.toPostGisSql(obj, that.options);
+            return that._utils.runQuery(that.client, sql);
         })
     },
     _getCreateStatement : function() {
-        return PostGisUtils.generateTableCreationSQL(this.options);
+        return this._utils.generateTableCreationSQL(this.options);
     },
     _rebuildIndexes : function() {
         var promise = Mosaic.P();
         var that = this;
         if (that.options.rebuildDb) {
-            var indexesSql = PostGisUtils.//
+            var indexesSql = that._utils.//
             generateTableIndexesSQL(that.options);
-            var viewsSql = PostGisUtils.//
+            var viewsSql = that._utils.//
             generateTableViewsSQL(that.options);
-            promise = PostGisUtils.//
+            promise = that.utils.//
             runQuery(that.client, indexesSql, viewsSql);
         }
         return promise.then(function() {

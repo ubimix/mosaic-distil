@@ -48,7 +48,17 @@ function readJson(file) {
     });
 }
 
-return module.exports = {
+function PostGisUtils(options) {
+    this.options = _.extend({}, options);
+    this.options.propertyFields = this.options.propertyFields ||
+            [ 'properties' ];
+}
+PostGisUtils.prototype = {
+
+    options : {
+        propertyFields : [ 'properties', 'properties_en', 'properties_es',
+                'properties_fr', 'properties_de' ]
+    },
 
     /**
      * Creates a new connection to the DB
@@ -82,6 +92,10 @@ return module.exports = {
         return promise;
     },
 
+    _getPropertyFields : function() {
+        return this.options.propertyFields || [ 'properties' ];
+    },
+
     toPostGisSql : function(obj, params) {
         params = checkParams(params);
         var properties = obj.properties || {};
@@ -90,11 +104,17 @@ return module.exports = {
             geometry = null;
         }
         type = properties.type || params.type;
-        var fieldNames = [ 'type', 'properties' ];
-        var fieldValues = [ esc(type),
-                esc(JSON.stringify(properties)) + "::json" ];
-        if (geometry && geometry.coordinates && geometry.coordinates.length
-                && geometry.coordinates[0]) {
+        var fieldNames = [ 'type' ];
+        var fieldValues = [ esc(type) ];
+        var propertyFields = this._getPropertyFields();
+        _.each(propertyFields, function(field) {
+            var properties = obj[field];
+            fieldNames.push(field);
+            fieldValues.push(properties ? esc(JSON.stringify(properties)) +
+                    "::json" : 'NULL');
+        });
+        if (geometry && geometry.coordinates && geometry.coordinates.length &&
+                geometry.coordinates[0]) {
             fieldNames.push('geometry');
             fieldValues.push(toPostGisWKT(geometry));
         }
@@ -109,27 +129,38 @@ return module.exports = {
 
     generateTableCreationSQL : function(params) {
         params = checkParams(params);
+        var propertyFields = this._getPropertyFields();
+        var fields = _.map(propertyFields, function(field) {
+            return field + ' json';
+        }).join(', ');
         var sql = 'drop table if exists <%=table%> cascade;\n';
-        sql += 'create table <%=table%> '
-                + '(id serial primary key, type varchar(255), '
-                + 'properties json, geometry geometry, \n'
-                + 'check (st_srid(geometry) = 4326)\n);\n';
+        sql += 'create table <%=table%> ' +
+                '(id serial primary key, type varchar(255), ' + fields +
+                ', geometry geometry, \n' +
+                'check (st_srid(geometry) = 4326)\n);\n';
         return _.template(sql)(params);
     },
 
     generateTableIndexesSQL : function(params) {
         params = checkParams(params);
-        return _.template("create index on <%=table%>(type);\n"
-                + "create index on <%=table%>((properties->>'type'));\n\n")(params);
+        return _
+                .template(
+                        "create index on <%=table%>(type);\n"
+                                + "create index on <%=table%>((properties->>'type'));\n\n")
+                (params);
     },
 
     generateTableViewsSQL : function(params) {
         params = checkParams(params);
-        var sql = "create or replace view <%=table%>_webmercator \n"
-                + "as select <%=table%>.id, <%=table%>.type, "
-                + "<%=table%>.properties, \n" + "<%=table%>.geometry, \n"
-                + "st_transform(<%=table%>.geometry, 3857) \n"
-                + "as the_geom_webmercator \n" + "from <%=table%>;\n";
+        var propertyFields = this._getPropertyFields();
+        var fields = _.map(propertyFields, function(field) {
+            return '<%=table%>.' + field;
+        }).join(', ');
+        var sql = "create or replace view <%=table%>_webmercator \n" +
+                "as select <%=table%>.id, <%=table%>.type, " + fields + ", \n" +
+                "<%=table%>.geometry, \n" +
+                "st_transform(<%=table%>.geometry, 3857) \n" +
+                "as the_geom_webmercator \n" + "from <%=table%>;\n";
         return _.template(sql)(params);
     },
 
@@ -142,3 +173,6 @@ return module.exports = {
     readJson : readJson
 }
 
+_.extend(PostGisUtils, PostGisUtils.prototype);
+
+return module.exports = PostGisUtils;
