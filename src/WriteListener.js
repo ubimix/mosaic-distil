@@ -39,6 +39,8 @@ var WriteListener = DataProvider.Listener.extend({
         return Mosaic.P.then(function() {
             return that._transformToGeoJson(dataset, entity);
         }).then(function(obj) {
+            if (!obj)
+                return;
             var str = JSON.stringify(obj, null, 2);
             var info = that.index[dataset.path];
             if (info.counter > 0) {
