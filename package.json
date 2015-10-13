@@ -2,7 +2,7 @@
   "name": "mosaic-distil",
   "version": "0.1.1",
   "scripts": {
-    "bump": "webpack && npm version patch && git push && git push --tags && npm publish",
+    "bump": "npm version patch && git push && git push --tags && npm publish",
     "bump-minor": "npm run bump && npm version minor && git push && git push --tags && npm publish",
     "commit": "git commit -a"
   },  
